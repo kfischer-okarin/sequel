@@ -4,7 +4,7 @@ inputs:
   version:
     description: 'Version to install'
     required: false
-    default: 'v0.9.1'
+    default: 'v0.9.1' # TODO: Support latest
 runs:
   using: "composite"
   steps:

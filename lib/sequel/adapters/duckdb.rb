@@ -1,9 +1,69 @@
 # frozen-string-literal: true
 
+require 'duckdb'
+
 module Sequel
   module DuckDB
     class Database < Sequel::Database
       set_adapter_scheme :duckdb
+
+      def supports_create_table_if_not_exists?
+        true
+      end
+
+      def execute(sql, opts=OPTS, &block)
+        synchronize(opts[:server]) do |conn|
+          conn.execute(sql)
+        end
+      rescue ::DuckDB::Error => e
+        raise_error(e)
+      end
+
+      def connect(server)
+        @instance ||= ::DuckDB::Database.open
+        Connection.new(@instance.connect, server)
+      end
+
+      def database_error_classes
+        [::DuckDB::Error]
+      end
+
+      def dataset_class_default
+        Dataset
+      end
+
+      def database_specific_error_class(exception, opts)
+        case exception.message
+        when /Duplicate key.+violates.+constraint/
+          UniqueConstraintViolation
+        when /CHECK constraint failed/
+          CheckConstraintViolation
+        when /NOT NULL constraint failed/
+          NotNullConstraintViolation
+        else
+          super
+        end
+      end
+    end
+
+    class Connection
+      def initialize(duckdb_connection, server)
+        @duckdb_connection = duckdb_connection
+        @server = server
+      end
+
+      def execute(sql, opts=OPTS)
+        @duckdb_connection.query(sql)
+      end
+
+      def close
+        @duckdb_connection.close
+      end
+    end
+
+    class Dataset < Sequel::Dataset
+      def fetch_rows(sql)
+      end
     end
   end
 end

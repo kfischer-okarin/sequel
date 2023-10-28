@@ -4,6 +4,8 @@ require 'duckdb'
 
 module Sequel
   module DuckDB
+    # TODO: AUTOINCREMENT is not supported -> replace with SEQUENCE
+    # Oracle adapter seems to do something similar
     class Database < Sequel::Database
       set_adapter_scheme :duckdb
 

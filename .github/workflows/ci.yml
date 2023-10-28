@@ -38,6 +38,7 @@ jobs:
     - run: sudo apt-get -yqq install libpq-dev libmysqlclient-dev
     - run: sudo apt-get -yqq install libxml2-dev libxslt-dev
       if: startsWith(matrix.ruby, 'truffleruby')
+    - uses: opt-nc/setup-duckdb-action@v1.0.0
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}

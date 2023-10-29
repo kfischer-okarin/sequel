@@ -6,8 +6,6 @@ DuckDB::Result.use_chunk_each = true
 
 module Sequel
   module DuckDB
-    # TODO: AUTOINCREMENT is not supported -> replace with SEQUENCE
-    # Oracle adapter seems to do something similar
     class Database < Sequel::Database
       set_adapter_scheme :duckdb
 
@@ -47,6 +45,33 @@ module Sequel
         else
           super
         end
+      end
+
+      # DuckDB does not support AUTOINCREMENT, so it's not included in the options
+      def serial_primary_key_options
+        {:primary_key => true, :type => Integer}
+      end
+
+      def create_table_sql(name, generator, options)
+        sql_statements = []
+        primary_key_column = generator.columns.find { |column| column[:primary_key] }
+        if primary_key_column
+          sequence_name = default_sequence_name(name, primary_key_column[:name])
+          sql_statements << create_sequence_sql(sequence_name)
+          primary_key_column[:default] = Sequel::LiteralString.new("nextval('#{sequence_name}')")
+        end
+
+        sql_statements << super
+
+        sql_statements.join(';')
+      end
+
+      def default_sequence_name(table_name, column_name)
+        "seq_#{table_name}_#{column_name}"
+      end
+
+      def create_sequence_sql(name)
+        "CREATE SEQUENCE #{quote_identifier(name)}"
       end
     end
 

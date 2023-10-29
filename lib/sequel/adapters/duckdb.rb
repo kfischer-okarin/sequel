@@ -42,6 +42,8 @@ module Sequel
           CheckConstraintViolation
         when /NOT NULL constraint failed/
           NotNullConstraintViolation
+        when /Violates foreign key constraint/
+          ForeignKeyConstraintViolation
         else
           super
         end

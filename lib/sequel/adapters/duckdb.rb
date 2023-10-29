@@ -2,6 +2,8 @@
 
 require 'duckdb'
 
+DuckDB::Result.use_chunk_each = true
+
 module Sequel
   module DuckDB
     # TODO: AUTOINCREMENT is not supported -> replace with SEQUENCE
@@ -15,7 +17,7 @@ module Sequel
 
       def execute(sql, opts=OPTS, &block)
         synchronize(opts[:server]) do |conn|
-          conn.execute(sql)
+          conn.execute(sql, &block)
         end
       rescue ::DuckDB::Error => e
         raise_error(e)
@@ -54,8 +56,13 @@ module Sequel
         @server = server
       end
 
-      def execute(sql, opts=OPTS)
-        @duckdb_connection.query(sql)
+      def execute(sql, opts=OPTS, &block)
+        result = @duckdb_connection.query(sql)
+        if block
+          result.each(&block)
+        else
+          result
+        end
       end
 
       def close
@@ -65,6 +72,23 @@ module Sequel
 
     class Dataset < Sequel::Dataset
       def fetch_rows(sql)
+        self.columns = fetch_columns
+        db.execute(sql).each do |row|
+          yield columns.zip(row).to_h
+        end
+      end
+
+      private
+
+      def fetch_columns
+        raise NotImplementedError, "Multiple tables not yet supported" if @opts[:from].size > 1
+
+        table_name = @opts[:from].first
+        result = []
+        db.execute("DESCRIBE #{quote_identifier(table_name)}").each do |row|
+          result << row[0].downcase.to_sym
+        end
+        result
       end
     end
   end

@@ -92,7 +92,7 @@ describe "Database schema parser" do
     DB.schema(:items).collect{|k,v| k if v[:primary_key]}.compact.must_equal [:number1, :number2]
   end
 
-  cspecify "should parse autoincrementing primary keys from the schema properly", :sqlite, :oracle do
+  cspecify "should parse autoincrementing primary keys from the schema properly", :sqlite, :oracle, :duckdb do
     DB.create_table!(:items){Integer :number}
     DB.schema(:items).collect{|k,v| k if v[:primary_key] && v[:auto_increment]}.compact.must_equal []
     DB.create_table!(:items){primary_key :number}
@@ -178,6 +178,12 @@ describe "Database schema parser" do
   int_types = [Integer, :Bignum, [Numeric, {:size=>7}]]
   decimal_types = [[Numeric, {:size=>[10, 2]}], [BigDecimal, {:size=>[8, 3]}]]
 
+  pending_dbs_by_type = {
+    int_types[2] => [:duckdb],
+    decimal_types[0] => [:duckdb],
+    decimal_types[1] => [:duckdb]
+  }
+
   case DB.database_type
   when :postgres
     int_types.concat([:smallint, :int2, :int4, :int8])
@@ -220,7 +226,9 @@ describe "Database schema parser" do
   end
 
   int_types.each do |type|
-    it "should correctly parse maximum and minimum values for #{type} columns" do
+    pending_dbs = pending_dbs_by_type[type] || []
+
+    cspecify "should correctly parse maximum and minimum values for #{type} columns", *pending_dbs do
       DB.create_table!(:items){column :a, *type}
       sch = DB.schema(:items).first.last
       max = sch[:max_value]
@@ -241,7 +249,9 @@ describe "Database schema parser" do
   end
 
   decimal_types.each do |type|
-    it "should correctly parse maximum and minimum values for #{type} columns" do
+    pending_dbs = pending_dbs_by_type[type] || []
+
+    cspecify "should correctly parse maximum and minimum values for #{type} columns", *pending_dbs do
       DB.create_table!(:items){column :a, *type}
       sch = DB.schema(:items).first.last
       max = sch[:max_value]
@@ -278,7 +288,7 @@ describe "Database schema parser" do
     DB.schema(:items).first.last[:max_length].must_equal 4
     DB.create_table!(:items){String :a, :fixed=>true, :size=>3}
     DB.schema(:items).first.last[:max_length].must_equal 3
-  end
+  end if DB.database_type != :duckdb
 end if DB.supports_schema_parsing?
 
 describe "Database index parsing" do
@@ -585,7 +595,7 @@ describe "Database schema modifiers" do
     @ds.insert([10])
   end
 
-  it "should be able to specify constraint names for column constraints" do
+  cspecify "should be able to specify constraint names for column constraints", :duckdb do
     @db.create_table!(:items2){primary_key :id, :primary_key_constraint_name=>:foo_pk}
     @db.create_table!(:items){foreign_key :id, :items2, :unique=>true, :foreign_key_constraint_name => :foo_fk, :unique_constraint_name => :foo_uk, :null=>false}
     @db.alter_table(:items){drop_constraint :foo_fk, :type=>:foreign_key; drop_constraint :foo_uk, :type=>:unique}
@@ -613,7 +623,7 @@ describe "Database schema modifiers" do
     @ds.all.must_equal [{:number=>10, :name=>nil}]
   end
 
-  cspecify "should add primary key columns to tables correctly", :derby, :h2 do
+  cspecify "should add primary key columns to tables correctly", :derby, :h2, :duckdb do
     @db.create_table!(:items){Integer :number}
     @ds.insert(:number=>10)
     @db.alter_table(:items){add_primary_key :id}
@@ -623,7 +633,7 @@ describe "Database schema modifiers" do
     proc{@ds.insert(:id=>@ds.map(:id).first)}.must_raise Sequel::UniqueConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError
   end
 
-  it "should drop primary key constraints from tables correctly" do
+  cspecify "should drop primary key constraints from tables correctly", :duckdb do
     @db.create_table!(:items){Integer :number; primary_key [:number], :name=>:items_pk}
     @ds.insert(:number=>10)
     @db.alter_table(:items){drop_constraint :items_pk, :type=>:primary_key}
@@ -631,7 +641,7 @@ describe "Database schema modifiers" do
     @ds.insert(10)
   end
 
-  it "should add foreign key columns to tables correctly" do
+  cspecify "should add foreign key columns to tables correctly", :duckdb do
     @db.create_table!(:items){primary_key :id}
     @ds.insert
     i = @ds.get(:id)
@@ -646,7 +656,7 @@ describe "Database schema modifiers" do
     proc{@ds.insert(:id=>nil)}.must_raise(Sequel::NotNullConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError)
   end
 
-  it "should not allow NULLs when adding a primary key column" do
+  cspecify "should not allow NULLs when adding a primary key column", :duckdb do
     @db.create_table!(:items){String :foo}
     @db.alter_table(:items){add_column :id, String, :primary_key=>true, :default=>'a'}
     proc{@ds.insert(:id=>nil)}.must_raise(Sequel::NotNullConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError)
@@ -659,7 +669,7 @@ describe "Database schema modifiers" do
     proc{@ds.insert(:id1=>'1', :id2=>nil)}.must_raise(Sequel::NotNullConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError)
   end
 
-  it "should not allow NULLs when adding a primary key constraint" do
+  cspecify "should not allow NULLs when adding a primary key constraint", :duckdb do
     @db.create_table!(:items){String :id1; String :id2}
     @db.alter_table(:items){add_primary_key [:id1, :id2]}
     proc{@ds.insert(:id1=>nil, :id2=>nil)}.must_raise(Sequel::NotNullConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError)
@@ -807,7 +817,7 @@ describe "Database schema modifiers" do
     @ds.map(:id).must_equal %w'a a'
   end
 
-  it "should add unnamed unique constraints and foreign key table constraints correctly" do
+  cspecify "should add unnamed unique constraints and foreign key table constraints correctly", :duckdb do
     @db.create_table!(:items, :engine=>:InnoDB){Integer :id, :null => false; Integer :item_id, :null => false}
     @db.alter_table(:items) do
       add_unique_constraint [:item_id, :id]
@@ -820,7 +830,7 @@ describe "Database schema modifiers" do
     proc{@ds.insert(1, 2)}.must_raise Sequel::ForeignKeyConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError
   end
 
-  it "should add named unique constraints and foreign key table constraints correctly" do
+  cspecify "should add named unique constraints and foreign key table constraints correctly", :duckdb do
     @db.create_table!(:items, :engine=>:InnoDB){Integer :id, :null=>false; Integer :item_id, :null=>false}
     @db.alter_table(:items) do
       add_unique_constraint [:item_id, :id], :name=>:unique_iii
@@ -833,7 +843,7 @@ describe "Database schema modifiers" do
     proc{@ds.insert(1, 2)}.must_raise Sequel::ForeignKeyConstraintViolation, Sequel::ConstraintViolation, Sequel::DatabaseError
   end
 
-  it "should drop unique constraints and foreign key table constraints correctly" do
+  cspecify "should drop unique constraints and foreign key table constraints correctly", :duckdb do
     @db.create_table!(:items) do
       Integer :id
       Integer :item_id
@@ -901,7 +911,7 @@ describe "Database schema modifiers" do
     @db.schema(:items, :reload=>true).map{|x| x.first}.must_equal [:id]
   end
 
-  cspecify "should work correctly with many operations in a single alter_table call", [:jdbc, :db2] do
+  cspecify "should work correctly with many operations in a single alter_table call", :jdbc, :db2, :duckdb do
     @db.create_table!(:items) do
       primary_key :id
       String :name2

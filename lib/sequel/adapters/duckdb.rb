@@ -21,6 +21,33 @@ module Sequel
         raise_error(e)
       end
 
+      def schema_parse_table(table_name, opts=OPTS)
+        result = []
+        execute("DESCRIBE #{quote_identifier(table_name)}").each do |row|
+          db_type = row[1]
+          type = schema_column_type(db_type)
+          schema = {
+            db_type: db_type,
+            type: type,
+            allow_null: row[2] == 'YES',
+            default: row[4],
+            ruby_default: nil,
+            primary_key: row[3] == 'PRI'
+          }
+          if type == :integer && schema[:default] =~ /\A\d+\z/
+            schema[:ruby_default] = schema[:default].to_i
+          elsif type == :datetime && schema[:default] == 'CURRENT_TIMESTAMP'
+            schema[:ruby_default] = Sequel::CURRENT_TIMESTAMP
+          elsif type == :date && schema[:default] == 'CURRENT_DATE'
+            schema[:ruby_default] = Sequel::CURRENT_DATE
+          elsif type == :string && schema[:default]
+            schema[:ruby_default] = schema[:default][1..-2]
+          end
+          result << [row[0].downcase.to_sym, schema]
+        end
+        result
+      end
+
       def connect(server)
         @instance ||= ::DuckDB::Database.open
         Connection.new(@instance.connect, server)
@@ -108,6 +135,7 @@ module Sequel
       private
 
       def fetch_columns
+        return opts[:select] if opts[:select]
         raise NotImplementedError, "Multiple tables not yet supported" if @opts[:from].size > 1
 
         table_name = @opts[:from].first

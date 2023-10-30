@@ -83,10 +83,10 @@ module Sequel
 
       def create_table_sql(name, generator, options)
         sql_statements = []
-        primary_key_column = generator.columns.find { |column| column[:primary_key] }
+        primary_key_column = generator.columns.find {|column| column[:primary_key]}
         if primary_key_column
           sequence_name = default_sequence_name(name, primary_key_column[:name])
-          sql_statements << create_sequence_sql(sequence_name)
+          sql_statements << create_sequence_sql(sequence_name, options)
           primary_key_column[:default] = Sequel::LiteralString.new("nextval('#{sequence_name}')")
         end
 
@@ -95,12 +95,40 @@ module Sequel
         sql_statements.join(';')
       end
 
+      def drop_table_sql(name, options)
+        sql_statements = [super]
+
+        if !options[:if_exists] || table_exists?(name)
+          primary_key_name = auto_incrementing_primary_key_name(name)
+          if primary_key_name
+            sequence_name = default_sequence_name(name, primary_key_name)
+            sql_statements << drop_sequence_sql(sequence_name, options)
+          end
+        end
+
+        sql_statements.join(';')
+      end
+
       def default_sequence_name(table_name, column_name)
         "seq_#{table_name}_#{column_name}"
       end
 
-      def create_sequence_sql(name)
+      def create_sequence_sql(name, options)
         "CREATE SEQUENCE #{quote_identifier(name)}"
+      end
+
+      def drop_sequence_sql(name, options)
+        "DROP SEQUENCE #{quote_identifier(name)}"
+      end
+
+      def auto_incrementing_primary_key_name(table)
+        primary_keys = schema(table).select {|column| column[1][:primary_key]}
+        return unless primary_keys.size == 1
+
+        primary_key = primary_keys.first
+        return unless primary_key[1][:type] == :integer
+
+        primary_key.first
       end
     end
 

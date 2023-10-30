@@ -136,14 +136,10 @@ module Sequel
 
       def fetch_columns
         return opts[:select] if opts[:select]
-        raise NotImplementedError, "Multiple tables not yet supported" if @opts[:from].size > 1
+        raise NotImplementedError, 'Multiple tables not yet supported' if @opts[:from].size > 1
 
-        table_name = @opts[:from].first
-        result = []
-        db.execute("DESCRIBE #{quote_identifier(table_name)}").each do |row|
-          result << row[0].downcase.to_sym
-        end
-        result
+        schema = db.schema_parse_table(@opts[:from].first)
+        schema.map(&:first)
       end
     end
   end

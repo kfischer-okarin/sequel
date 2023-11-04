@@ -21,6 +21,12 @@ module Sequel
         raise_error(e)
       end
 
+      def execute_insert(sql, opts=OPTS)
+        execute(sql, opts) do |result|
+          return result[0]
+        end
+      end
+
       def schema_parse_table(table_name, opts=OPTS)
         result = []
         execute("DESCRIBE #{quote_identifier(table_name)}").each do |row|

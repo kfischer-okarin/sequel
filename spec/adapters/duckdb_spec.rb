@@ -47,5 +47,14 @@ describe "A DuckDB database" do
 
       DB[:items].select(Sequel[:number].as(:b)).to_a.must_equal [{:b => 1}]
     end
+
+    it 'returns primary key on insert' do
+      DB.create_table!(:items) do
+        primary_key :id
+        Integer :number
+      end
+
+      DB[:items].insert(:number => 22).must_equal 1
+    end
   end
 end

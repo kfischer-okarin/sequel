@@ -166,6 +166,13 @@ module Sequel
         end
       end
 
+      # DuckDB does not support FOR UPDATE, but silently ignore it
+      # instead of raising an error for compatibility with other
+      # databases.
+      def select_lock_sql(sql)
+        super unless @opts[:lock] == :update
+      end
+
       private
 
       def fetch_columns

@@ -21,7 +21,7 @@ module Sequel
         raise_error(e)
       end
 
-      def execute_insert(sql, opts=OPTS)
+      def execute_dui(sql, opts=OPTS)
         execute(sql, opts) do |result|
           return result[0]
         end

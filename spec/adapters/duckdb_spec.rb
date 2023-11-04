@@ -38,23 +38,28 @@ describe "A DuckDB database" do
   end
 
   describe 'Dataset' do
-    it 'can handle aliased expressions' do
-      DB.create_table!(:items) do
-        Integer :number
-      end
-
-      DB[:items].insert(:number => 1)
-
-      DB[:items].select(Sequel[:number].as(:b)).to_a.must_equal [{:b => 1}]
-    end
-
-    it 'returns primary key on insert' do
+    before do
       DB.create_table!(:items) do
         primary_key :id
         Integer :number
       end
+      @dataset = DB[:items]
+    end
 
-      DB[:items].insert(:number => 22).must_equal 1
+    it 'can handle aliased expressions' do
+      @dataset.insert(:number => 1)
+
+      @dataset.select(Sequel[:number].as(:b)).to_a.must_equal [{:b => 1}]
+    end
+
+    it 'returns primary key on insert' do
+      @dataset.insert(:number => 22).must_equal 1
+    end
+
+    it 'returns number of updated rows on update' do
+      @dataset.insert(:number => 22)
+
+      @dataset.update(:number => 33).must_equal 1
     end
   end
 end

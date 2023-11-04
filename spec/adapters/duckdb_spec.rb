@@ -36,4 +36,16 @@ describe "A DuckDB database" do
 
     DB[:items].map(:id).sort.must_equal [1]
   end
+
+  describe 'Dataset' do
+    it 'can handle aliased expressions' do
+      DB.create_table!(:items) do
+        Integer :number
+      end
+
+      DB[:items].insert(:number => 1)
+
+      DB[:items].select(Sequel[:number].as(:b)).to_a.must_equal [{:b => 1}]
+    end
+  end
 end

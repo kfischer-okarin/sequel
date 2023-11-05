@@ -176,20 +176,22 @@ module Sequel
       private
 
       def fetch_columns
-        if opts[:select]
-          return opts[:select].map { |column|
-            case column
-            when Sequel::SQL::AliasedExpression
-              column.alias
-            else
-              column
-            end
-          }
-        end
+        return opts[:select].map { |column| evaluate_column_name(column) } if opts[:select]
         raise NotImplementedError, 'Multiple tables not yet supported' if @opts[:from].size > 1
 
         schema = db.schema_parse_table(@opts[:from].first)
         schema.map(&:first)
+      end
+
+      def evaluate_column_name(column)
+         case column
+         when SQL::Identifier
+           evaluate_column_name column.value
+         when SQL::AliasedExpression
+           evaluate_column_name column.alias
+         else
+           column
+         end
       end
     end
   end

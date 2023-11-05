@@ -424,7 +424,7 @@ describe "Simple dataset operations with nasty table names" do
     @table = :"i`t' [e]\"m\\s" 
   end
 
-  cspecify "should work correctly", :oracle, :sqlanywhere, [:jdbc, :mssql] do
+  cspecify "should work correctly", :oracle, :sqlanywhere, [:jdbc, :mssql], :duckdb do
     @db.create_table!(@table) do
       primary_key :id
       Integer :number

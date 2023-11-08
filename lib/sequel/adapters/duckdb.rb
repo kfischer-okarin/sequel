@@ -159,6 +159,14 @@ module Sequel
     end
 
     class Dataset < Sequel::Dataset
+      def insert_sql(*values)
+        if (pk = primary_key_name)
+          "#{super} RETURNING #{pk}"
+        else
+          super
+        end
+      end
+
       def fetch_rows(sql)
         self.columns = fetch_columns
         db.execute(sql).each do |row|
@@ -171,6 +179,16 @@ module Sequel
       # databases.
       def select_lock_sql(sql)
         super unless @opts[:lock] == :update
+      end
+
+      def primary_key_name
+        unless @cache.key?(:_primary_key_name)
+          data_source = @opts[:from].first
+          primary_key_name = db.auto_incrementing_primary_key_name(data_source)
+          cache_set(:_primary_key_name, primary_key_name)
+        end
+
+        cache_get(:_primary_key_name)
       end
 
       private

@@ -54,6 +54,7 @@ describe "A DuckDB database" do
 
     it 'returns primary key on insert' do
       @dataset.insert(:number => 22).must_equal 1
+      @dataset.insert(:number => 33).must_equal 2
     end
 
     it 'returns number of updated rows on update' do

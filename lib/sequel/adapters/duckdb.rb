@@ -9,10 +9,7 @@ module Sequel
     class Database < Sequel::Database
       set_adapter_scheme :duckdb
 
-      def supports_create_table_if_not_exists?
-        true
-      end
-
+      # ---------- 1. Queries ----------
       def execute(sql, opts=OPTS, &block)
         synchronize(opts[:server]) do |conn|
           conn.execute(sql, &block)
@@ -54,40 +51,18 @@ module Sequel
         result
       end
 
-      def connect(server)
-        @instance ||= ::DuckDB::Database.open
-        Connection.new(@instance.connect, server)
+      def auto_incrementing_primary_key_name(table)
+        primary_keys = schema(table).select {|column| column[1][:primary_key]}
+        return unless primary_keys.size == 1
+
+        primary_key = primary_keys.first
+        return unless primary_key[1][:type] == :integer
+
+        primary_key.first
       end
 
-      def database_error_classes
-        [::DuckDB::Error]
-      end
-
-      def dataset_class_default
-        Dataset
-      end
-
-      def database_specific_error_class(exception, opts)
-        case exception.message
-        when /Duplicate key.+violates.+constraint/
-          UniqueConstraintViolation
-        when /CHECK constraint failed/
-          CheckConstraintViolation
-        when /NOT NULL constraint failed/
-          NotNullConstraintViolation
-        when /Violates foreign key constraint/
-          ForeignKeyConstraintViolation
-        else
-          super
-        end
-      end
-
-      # DuckDB does not support AUTOINCREMENT, so it's not included in the options
-      def serial_primary_key_options
-        {:primary_key => true, :type => Integer}
-      end
-
-      def create_table_sql(name, generator, options)
+      # ---------- 2. Schema Modification ----------
+       def create_table_sql(name, generator, options)
         sql_statements = []
         primary_key_column = generator.columns.find {|column| column[:primary_key]}
         if primary_key_column
@@ -127,14 +102,46 @@ module Sequel
         "DROP SEQUENCE #{quote_identifier(name)}"
       end
 
-      def auto_incrementing_primary_key_name(table)
-        primary_keys = schema(table).select {|column| column[1][:primary_key]}
-        return unless primary_keys.size == 1
+      # ---------- 4. Connections ----------
+      def connect(server)
+        @instance ||= ::DuckDB::Database.open
+        Connection.new(@instance.connect, server)
+      end
 
-        primary_key = primary_keys.first
-        return unless primary_key[1][:type] == :integer
+      # ---------- 5. Dataset Defaults ----------
+      def dataset_class_default
+        Dataset
+      end
 
-        primary_key.first
+      # ---------- 7. Miscellaneous ----------
+      # DuckDB does not support AUTOINCREMENT, so it's not included in the options
+      def serial_primary_key_options
+        {:primary_key => true, :type => Integer}
+      end
+
+      def database_specific_error_class(exception, opts)
+        case exception.message
+        when /Duplicate key.+violates.+constraint/
+          UniqueConstraintViolation
+        when /CHECK constraint failed/
+          CheckConstraintViolation
+        when /NOT NULL constraint failed/
+          NotNullConstraintViolation
+        when /Violates foreign key constraint/
+          ForeignKeyConstraintViolation
+        else
+          super
+        end
+      end
+
+      # ---------- 8. Transactions ----------
+      def database_error_classes
+        [::DuckDB::Error]
+      end
+
+      # ---------- 9. Features ----------
+      def supports_create_table_if_not_exists?
+        true
       end
     end
 
@@ -159,18 +166,20 @@ module Sequel
     end
 
     class Dataset < Sequel::Dataset
+      # ---------- 2. Actions ----------
+      def fetch_rows(sql)
+        self.columns = fetch_columns
+        db.execute(sql).each do |row|
+          yield columns.zip(row).to_h
+        end
+      end
+
+      # ---------- 3. SQL Creation ----------
       def insert_sql(*values)
         if (pk = primary_key_name)
           "#{super} RETURNING #{pk}"
         else
           super
-        end
-      end
-
-      def fetch_rows(sql)
-        self.columns = fetch_columns
-        db.execute(sql).each do |row|
-          yield columns.zip(row).to_h
         end
       end
 
@@ -181,6 +190,7 @@ module Sequel
         super unless @opts[:lock] == :update
       end
 
+      # ---------- 6. Miscellaneous ----------
       def primary_key_name
         unless @cache.key?(:_primary_key_name)
           data_source = @opts[:from].first

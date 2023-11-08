@@ -3,38 +3,38 @@ SEQUEL_ADAPTER_TEST = :duckdb
 require_relative 'spec_helper'
 
 describe "A DuckDB database" do
-  after do
-    DB.drop_table?(:items)
-  end
-
-  it 'supports auto incrementing primary keys' do
-    DB.create_table!(:items) do
-      primary_key :id
+  describe 'primary key' do
+    before do
+      DB.create_table!(:items) do
+        primary_key :id
+      end
     end
 
-    DB[:items].insert
-    DB[:items].insert
-    DB[:items].insert
-
-    DB[:items].map(:id).sort.must_equal [1, 2, 3]
-  end
-
-  it 'restarts auto incrementing primary key from 1 after dropping' do
-    DB.create_table!(:items) do
-      primary_key :id
+    after do
+      DB.drop_table?(:items)
     end
 
-    DB[:items].insert
+    it 'supports auto incrementing primary keys' do
+      DB[:items].insert
+      DB[:items].insert
+      DB[:items].insert
 
-    DB.drop_table(:items)
-
-    DB.create_table!(:items) do
-      primary_key :id
+      DB[:items].map(:id).sort.must_equal [1, 2, 3]
     end
 
-    DB[:items].insert
+    it 'restarts auto incrementing primary key from 1 after dropping' do
+      DB[:items].insert
 
-    DB[:items].map(:id).sort.must_equal [1]
+      DB.drop_table(:items)
+
+      DB.create_table!(:items) do
+        primary_key :id
+      end
+
+      DB[:items].insert
+
+      DB[:items].map(:id).sort.must_equal [1]
+    end
   end
 
   describe 'Dataset' do
@@ -44,6 +44,10 @@ describe "A DuckDB database" do
         Integer :number
       end
       @dataset = DB[:items]
+    end
+
+    after do
+      DB.drop_table?(:items)
     end
 
     it 'can handle aliased expressions' do

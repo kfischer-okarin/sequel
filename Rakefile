@@ -116,7 +116,7 @@ spec_task.call("Run bin/sequel specs", :spec_bin, 'spec/bin_spec.rb', 'bin', fal
 spec_task.call("Run core extensions specs", :spec_core_ext, 'spec/core_extensions_spec.rb', 'core-ext', true)
 spec_task.call("Run integration tests", :spec_integration, 'spec/adapter_spec.rb none', '1', true)
 
-%w'postgres sqlite mysql oracle mssql db2 sqlanywhere'.each do |adapter|
+%w'postgres sqlite mysql oracle mssql db2 sqlanywhere duckdb'.each do |adapter|
   spec_task.call("Run #{adapter} tests", :"spec_#{adapter}", "spec/adapter_spec.rb #{adapter}", adapter, true)
 end
 
@@ -154,6 +154,7 @@ task :spec_ci=>[:spec_core, :spec_model, :spec_plugin, :spec_core_ext] do
     ENV['SEQUEL_MYSQL_URL'] = "jdbc:mysql://#{mysql_host}/sequel_test?user=root#{mysql_password}&useSSL=false&allowPublicKeyRetrieval=true"
   else
     ENV['SEQUEL_SQLITE_URL'] = "sqlite:/"
+    ENV['SEQUEL_DUCKDB_URL'] = "duckdb:/"
     ENV['SEQUEL_POSTGRES_URL'] = "postgres://localhost/#{pg_database}?user=postgres&password=postgres"
     ENV['SEQUEL_MYSQL_URL'] = "mysql2://#{mysql_host}/sequel_test?user=root#{mysql_password}&useSSL=false"
   end
@@ -163,6 +164,8 @@ task :spec_ci=>[:spec_core, :spec_model, :spec_plugin, :spec_core_ext] do
     Rake::Task['spec_sqlite'].invoke
     Rake::Task['spec_mysql'].invoke
   end
+
+  Rake::Task['spec_duckdb'].invoke if RUBY_VERSION >= '2.7'
 end
 
 desc "Print Sequel version"

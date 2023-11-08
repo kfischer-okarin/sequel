@@ -1,0 +1,18 @@
+name: Install libduckdb
+description: 'Installs libduckdb'
+inputs:
+  version:
+    description: 'Version to install'
+    required: false
+    default: 'v0.9.1' # TODO: Support latest
+runs:
+  using: "composite"
+  steps:
+    - name: Download & Install libduckdb
+      shell: bash
+      run: |
+        wget https://github.com/duckdb/duckdb/releases/download/${{ inputs.version }}/libduckdb-linux-amd64.zip
+        unzip libduckdb-linux-amd64.zip -d libduckdb
+        sudo mv libduckdb/duckdb.* /usr/include/
+        sudo mv libduckdb/libduckdb.so /usr/lib/
+        rm -rf libduckdb*

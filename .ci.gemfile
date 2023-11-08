@@ -89,6 +89,8 @@ platforms :ruby do
   if sequel_pg && RUBY_VERSION >= '2.1'
     gem 'sequel_pg', git: 'https://github.com/jeremyevans/sequel_pg', require: 'sequel'
   end
+
+  gem "duckdb" if RUBY_VERSION >= '2.7.0'
 end
 
 # JRuby Adapter Dependencies

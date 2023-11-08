@@ -179,8 +179,14 @@ module Sequel
         return opts[:select].map { |column| evaluate_column_name(column) } if opts[:select]
         raise NotImplementedError, 'Multiple tables not yet supported' if @opts[:from].size > 1
 
-        schema = db.schema_parse_table(@opts[:from].first)
-        schema.map(&:first)
+        data_source = @opts[:from].first
+        case data_source
+        when SQL::AliasedExpression
+          data_source.expression.columns
+        else
+          schema = db.schema_parse_table(data_source)
+          schema.map(&:first)
+        end
       end
 
       def evaluate_column_name(column)
